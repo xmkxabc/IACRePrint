@@ -6,5 +6,4 @@ It is running on Linux and is backed by [PostgreSQL](http://www.postgresql.org/)
 
 MIT license
 
-Bo Zhu https://about.bozhu.me 2024
 [xmkxabc](https://github.com/xmkxabc) 2024
