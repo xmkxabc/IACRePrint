@@ -1,0 +1,45 @@
+# -*- coding: utf-8 -*-
+
+import requests
+import xml.etree.ElementTree as ET
+from urlparse import urlparse
+
+class PaperScraper:
+    def __init__(self, url):
+        self.url = url
+        self.namespace = {'default': 'http://www.w3.org/2005/Atom'}
+
+    def get_data(self):
+        response = requests.get(self.url)
+        data = response.content.decode('utf-8').encode('ascii', 'ignore')
+        return data
+
+    def parse_data(self):
+        data = self.get_data()
+        root = ET.fromstring(data)
+        entries = root.findall('default:entry', self.namespace)
+
+        papers = []
+        for entry in entries:
+	    if len(papers) >= 30:  # Stop parsing after 30 papers
+                break
+            paper = {}
+            paper['title'] = entry.find('default:title', self.namespace).text
+            paper['authors'] = " and ".join([author.find('default:name', self.namespace).text for author in entry.findall('default:author', self.namespace)])
+            paper['pub_id'] = [urlparse(link.get('href')).path.strip('/') for link in entry.findall('default:link', self.namespace)][0]
+
+            updated = entry.find('default:updated', self.namespace).text
+            published = entry.find('default:published', self.namespace).text
+            paper['update_type'] = 'New' if updated == published else 'Revised'
+
+            papers.append(paper)
+
+        return papers
+
+# Usage
+if __name__ == '__main__':
+    scraper = PaperScraper('https://eprint.iacr.org/rss/atom.xml')
+    papers = scraper.parse_data()
+    print(len(papers))
+    for paper in papers:
+        print(paper)
