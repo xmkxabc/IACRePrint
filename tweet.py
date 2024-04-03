@@ -1,13 +1,11 @@
 #!/usr/bin/env python
 
 # import urllib
+import requests
 from unidecode import unidecode
-from requests_oauthlib import OAuth1Session
+from requests_oauthlib import OAuth1
 
-from config import TWITTER_CONSUMER_KEY, TWITTER_CONSUMER_SECRET, \
-    TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET, \
-    sentry_client
-
+from config import CONSUMER_KEY, CONSUMER_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET
 
 def tweet_format(entry, t_co_len):
     ret = u'[' + unicode(entry['update_type']).capitalize() + u']'
@@ -20,7 +18,7 @@ def tweet_format(entry, t_co_len):
 
     if len(ret) > 280 - t_co_len - 2:  # -2 for extra space
         ret = ret[:(280 - t_co_len - 2 - 3)] + u'...'
-    ret += u' http://ia.cr/' + unicode(entry['pub_id'])
+    ret += u' https://ia.cr/' + unicode(entry['pub_id'])
 
     # assert len(ret) <= 280
     # assert len(ret) <= 280 + 31 - t_co_len
@@ -30,80 +28,61 @@ def tweet_format(entry, t_co_len):
     # the twitter api will return 401 unautheroized error
     # if the string contains a ~ (even after URL encoding)
 
+# def create_oauth_client():
+#     new_client = OAuth1Session(
+#         TWITTER_CONSUMER_KEY,
+#         client_secret=TWITTER_CONSUMER_SECRET,
+#         resource_owner_key=TWITTER_ACCESS_TOKEN,
+#         resource_owner_secret=TWITTER_ACCESS_TOKEN_SECRET)
 
-def create_oauth_client():
-    new_client = OAuth1Session(
-        TWITTER_CONSUMER_KEY,
-        client_secret=TWITTER_CONSUMER_SECRET,
-        resource_owner_key=TWITTER_ACCESS_TOKEN,
-        resource_owner_secret=TWITTER_ACCESS_TOKEN_SECRET)
+#     return new_client
 
-    return new_client
-
-
-def tweet(list_entries):
-    client = create_oauth_client()
+def tweet(tweet_texts):
+    consumer_key = CONSUMER_KEY
+    consumer_secret = CONSUMER_SECRET
+    access_token = ACCESS_TOKEN
+    access_token_secret = ACCESS_TOKEN_SECRET
+    short_url_length=23
     unfinished_entries = []
+    
+    auth = OAuth1(consumer_key, consumer_secret, access_token, access_token_secret)
 
-    resp = client.get('https://api.twitter.com/1.1/help/configuration.json')
-    if resp.status_code != 200:
-        # try again
-        resp = client.get(
-            'https://api.twitter.com/1.1/help/configuration.json')
+    url = 'https://api.twitter.com/2/tweets'
 
-    if resp.status_code != 200:
-        sentry_client.captureMessage(
-            'getting t.co length failed',
-            extra={
-                'status_code': resp.status_code,
-                'error_text': resp.text
-            }
-        )
-        return list_entries
-    else:
-        short_url_length = resp.json()['short_url_length']
-        # print short_url_length
-
-    for entry in list_entries:
-        post_data = {'status': tweet_format(entry, short_url_length)}
-        resp = client.post(
-            'https://api.twitter.com/1.1/statuses/update.json',
-            data=post_data)
-
-        if resp.status_code == 401 and 'not authenticate' in resp.text:
+    for tweet_text in reversed(tweet_texts):
+	payload = {
+            'text': tweet_format(tweet_text , short_url_length)
+        }
+        response = requests.post(url, auth=auth, json=payload)
+        if response.status_code == 401 and 'not authenticate' in response.text:
             # sometimes not stable (don't know why), just try it again
-            client = create_oauth_client()
-            resp = client.post(
-                'https://api.twitter.com/1.1/statuses/update.json',
-                data=post_data)
-
+            print 1
+            response = requests.post(url, auth=auth, json=payload)
         # if resp.status_code == 403 and 'duplicate' in resp.text:
-        if resp.status_code == 403:
+        if response.status_code == 403:
             # report but continue to the next entry
-            sentry_client.captureMessage(
-                'tweet err code ' + str(resp.status_code),
-                extra={
-                    'status_code': resp.status_code,
-                    'error_text': resp.text,
-                    'current_entry': entry,
-                    'list_of_entries': list_entries
-                }
-            )
+            print('Failed to send tweet:', response.text)
+            # sentry_client.captureMessage(
+            #     'tweet err code ' + str(resp.status_code),
+            #     extra={
+            #         'status_code': resp.status_code,
+            #         'error_text': resp.text,
+            #         'current_entry': entry,
+            #         'list_of_entries': list_entries
+            #     }
+            # )
+            print 2
             continue
 
-        if resp.status_code != 200:
+        if response.status_code == 201:
+            print('Tweet sent successfully!',tweet_text)
+            print('Tweet ID:', response.json()['data']['id'])
+        else:
             # if it still doesn't work
-            unfinished_entries.append(entry)
-            sentry_client.captureMessage(
-                'tweet err code ' + str(resp.status_code),
-                extra={
-                    'status_code': resp.status_code,
-                    'error_text': resp.text,
-                    'current_entry': entry,
-                    'list_of_entries': list_entries
-                }
-            )
-
+            unfinished_entries.append(tweet_text)
+            print('Failed to send tweet:', response.text)
+            print 3
+        
     return unfinished_entries
 
 
