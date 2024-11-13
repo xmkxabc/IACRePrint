@@ -83,7 +83,7 @@ def tweet(tweet_texts):
             # if it still doesn't work
             unfinished_entries.append(tweet_text)
             #print('Failed to send tweet:', response.text)
-            #Be carefull ! print failed message, the response.headers have x-rate-limit-reset and so on.
+            #print failed message, the response.headers have x-rate-limit-reset and so on.
             #print('Failed to send tweet:', response.text, response.headers, response.json())
             if response.status_code == 429:
                 # Calculate retry time from `x-user-limit-24hour-reset` header
@@ -120,12 +120,12 @@ if __name__ == '__main__':
         'update_type': 'new',
         'title': u'Self-pairings on supersingular elliptic curves'
                  + ' with embedding degree $three$'
-    }#, {
-     #   'authors': 'Pierre-Alain Fouque and Moon Sung Lee '
-     #              + 'and Tancr\`ede Lepoint and Mehdi Tibouchi',
-     #   'pub_id': u'2014/1024',
-     #   'title': u'Cryptanalysis of the Co-ACD Assumption',
-     #   'update_type': 'revised'
-    #}
+    }, {
+        'authors': 'Pierre-Alain Fouque and Moon Sung Lee '
+                   + 'and Tancr\`ede Lepoint and Mehdi Tibouchi',
+        'pub_id': u'2014/1024',
+        'title': u'Cryptanalysis of the Co-ACD Assumption',
+        'update_type': 'revised'
+    }
     ]
     tweet(entries)
